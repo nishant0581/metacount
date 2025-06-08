@@ -1,7 +1,9 @@
+
 import MarketStats from "@/components/MarketStats";
 import CryptoChart from "@/components/CryptoChart";
 import PortfolioCard from "@/components/PortfolioCard";
 import CryptoList from "@/components/CryptoList";
+import GasFeeTracker from "@/components/GasFeeTracker";
 
 const Index = () => {
   return (
@@ -13,6 +15,7 @@ const Index = () => {
         </header>
         
         <MarketStats />
+        <GasFeeTracker />
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
