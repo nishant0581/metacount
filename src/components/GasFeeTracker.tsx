@@ -1,50 +1,64 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Flame, Bitcoin as BitcoinIcon, AlertCircle, Loader2 } from "lucide-react"; // Renamed Bitcoin to BitcoinIcon to avoid conflict
+import { Flame, Bitcoin as BitcoinIcon, AlertCircle, Loader2 } from "lucide-react";
 
-const fetchBitcoinStats = async () => {
+// Define interfaces for the expected data structure from the API
+interface BitcoinStatsData {
+  suggested_transaction_fee_per_byte_sat?: number | null;
+  // Add other fields if you use them from the API response
+}
+
+interface EthereumStatsData {
+  gas_price?: number | null; // This is in Wei
+  // Add other fields if you use them from the API response
+}
+
+const fetchBitcoinStats = async (): Promise<BitcoinStatsData> => {
   const response = await fetch("https://api.blockchair.com/bitcoin/stats");
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+    const errorData = await response.json().catch(() => ({ context: { error: "Failed to parse error response" } }));
     throw new Error(errorData.context?.error || "Network response was not ok for Bitcoin stats");
   }
   const data = await response.json();
-  return data.data;
+  return data.data; // queryFn should return the data structure expected by useQuery
 };
 
-const fetchEthereumStats = async () => {
+const fetchEthereumStats = async (): Promise<EthereumStatsData> => {
   const response = await fetch("https://api.blockchair.com/ethereum/stats");
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+    const errorData = await response.json().catch(() => ({ context: { error: "Failed to parse error response" } }));
     throw new Error(errorData.context?.error || "Network response was not ok for Ethereum stats");
   }
   const data = await response.json();
-  return data.data;
+  return data.data; // queryFn should return the data structure expected by useQuery
 };
 
 const GasFeeTracker = () => {
-  const { 
-    data: bitcoinData, 
-    isLoading: isLoadingBitcoin, 
-    error: bitcoinError 
-  } = useQuery<{ suggested_transaction_fee_per_byte_sat: number }, Error>({
+  const {
+    data: bitcoinData,
+    isLoading: isLoadingBitcoin,
+    error: bitcoinError
+  } = useQuery<BitcoinStatsData, Error>({
     queryKey: ["bitcoinStats"],
     queryFn: fetchBitcoinStats,
     refetchInterval: 60000, // Refetch every 60 seconds
   });
 
-  const { 
-    data: ethereumData, 
-    isLoading: isLoadingEthereum, 
-    error: ethereumError 
-  } = useQuery<{ gas_price: number }, Error>({
+  const {
+    data: ethereumData,
+    isLoading: isLoadingEthereum,
+    error: ethereumError
+  } = useQuery<EthereumStatsData, Error>({
     queryKey: ["ethereumStats"],
     queryFn: fetchEthereumStats,
     refetchInterval: 60000, // Refetch every 60 seconds
   });
 
-  const ethGasPriceGwei = ethereumData?.gas_price ? (ethereumData.gas_price / 1e9).toFixed(0) : null;
+  const btcFee = bitcoinData?.suggested_transaction_fee_per_byte_sat;
+  const ethGasPriceGwei = (ethereumData?.gas_price !== null && ethereumData?.gas_price !== undefined)
+    ? (ethereumData.gas_price / 1e9).toFixed(0)
+    : null;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 animate-fade-in">
@@ -62,11 +76,11 @@ const GasFeeTracker = () => {
           ) : bitcoinError ? (
             <div className="flex items-center space-x-2 text-warning">
               <AlertCircle className="h-5 w-5" />
-              <span className="text-sm">Error loading</span>
+              <span className="text-sm" title={bitcoinError.message}>Error loading</span>
             </div>
           ) : (
             <div className="text-2xl font-bold">
-              {bitcoinData?.suggested_transaction_fee_per_byte_sat} sats/vB
+              {btcFee !== null && btcFee !== undefined ? `${btcFee} sats/vB` : "N/A"}
             </div>
           )}
           <p className="text-xs text-muted-foreground">
@@ -89,11 +103,11 @@ const GasFeeTracker = () => {
           ) : ethereumError ? (
             <div className="flex items-center space-x-2 text-warning">
               <AlertCircle className="h-5 w-5" />
-              <span className="text-sm">Error loading</span>
+              <span className="text-sm" title={ethereumError.message}>Error loading</span>
             </div>
           ) : (
             <div className="text-2xl font-bold">
-              {ethGasPriceGwei ? `${ethGasPriceGwei} Gwei` : "N/A"}
+              {ethGasPriceGwei !== null ? `${ethGasPriceGwei} Gwei` : "N/A"}
             </div>
           )}
           <p className="text-xs text-muted-foreground">
