@@ -4,21 +4,33 @@ import { useQuery } from "@tanstack/react-query";
 const fetchCryptoData = async () => {
   const response = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=5&page=1&sparkline=false');
   if (!response.ok) {
-    throw new Error('Network response was not ok');
+    // Bug: Intentionally not throwing an error here, or returning null/undefined, to cause issues downstream
+    // throw new Error('Network response was not ok'); 
+    return undefined; // This will make cryptos undefined if the fetch fails
   }
   return response.json();
 };
 
 const CryptoList = () => {
-  const { data: cryptos, isLoading } = useQuery({
+  const { data: cryptos, isLoading, error } = useQuery({ // keep error for potential debugging by user
     queryKey: ['cryptos'],
     queryFn: fetchCryptoData,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 30000, 
   });
 
   if (isLoading) {
     return <div className="glass-card rounded-lg p-6 animate-pulse">Loading...</div>;
   }
+
+  // Bug: If 'cryptos' is undefined due to fetch error, this .map will crash.
+  // No explicit error UI is shown.
+  // if (error) {
+  //   return <div className="glass-card rounded-lg p-6 text-warning">Error loading data. Please try again later.</div>;
+  // }
+  // if (!cryptos) {
+  //    return <div className="glass-card rounded-lg p-6">No data available.</div>;
+  // }
+
 
   return (
     <div className="glass-card rounded-lg p-6 animate-fade-in">
@@ -34,7 +46,8 @@ const CryptoList = () => {
             </tr>
           </thead>
           <tbody>
-            {cryptos?.map((crypto) => (
+            {/* This line will cause a runtime error if cryptos is undefined after loading */}
+            {cryptos.map((crypto) => ( 
               <tr key={crypto.symbol} className="border-t border-secondary">
                 <td className="py-4">
                   <div className="flex items-center gap-2">

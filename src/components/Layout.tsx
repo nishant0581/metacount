@@ -1,14 +1,14 @@
 
 import { type ReactNode } from 'react';
 import { Link, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Newspaper, Briefcase, Cog, Bitcoin } from 'lucide-react';
+import { LayoutDashboardIcon, Newspaper, Briefcase, Cog, Bitcoin } from 'lucide-react'; // Changed LayoutDashboard to LayoutDashboardIcon (Bug: potential non-existent icon or typo)
 
 interface LayoutProps {
   children?: ReactNode;
 }
 
 const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/', label: 'Dashboard', icon: LayoutDashboardIcon }, // Bug: Using the potentially incorrect icon
   { href: '/portfolio', label: 'Portfolio', icon: Briefcase },
   { href: '/news', label: 'News', icon: Newspaper },
   { href: '/settings', label: 'Settings', icon: Cog },

@@ -9,8 +9,10 @@ interface BitcoinStatsData {
   // Add other fields if you use them from the API response
 }
 
-interface EthereumStatsData {
-  gas_price?: number | null; // This is in Wei
+interface EthereumStatsDataContainer { // Renamed to avoid conflict if 'data' is used as prop
+  data?: { // Bug: Nested 'data' property which might be null/undefined
+    gas_price?: number | null; 
+  }
   // Add other fields if you use them from the API response
 }
 
@@ -21,17 +23,20 @@ const fetchBitcoinStats = async (): Promise<BitcoinStatsData> => {
     throw new Error(errorData.context?.error || "Network response was not ok for Bitcoin stats");
   }
   const data = await response.json();
-  return data.data; // queryFn should return the data structure expected by useQuery
+  return data.data; 
 };
 
-const fetchEthereumStats = async (): Promise<EthereumStatsData> => {
+const fetchEthereumStats = async (): Promise<EthereumStatsDataContainer> => {
   const response = await fetch("https://api.blockchair.com/ethereum/stats");
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ context: { error: "Failed to parse error response" } }));
-    throw new Error(errorData.context?.error || "Network response was not ok for Ethereum stats");
+    // Bug: If error, this will cause ethereumData to be undefined, leading to issues below
+    // throw new Error(errorData.context?.error || "Network response was not ok for Ethereum stats");
+    return { data: undefined }; // Simulate a case where the structure is there, but data might be missing
   }
-  const data = await response.json();
-  return data.data; // queryFn should return the data structure expected by useQuery
+  // const data = await response.json(); // This would be the correct way
+  // return data; // This would be the correct way
+  return await response.json(); // Assume the entire response is EthereumStatsDataContainer
 };
 
 const GasFeeTracker = () => {
@@ -42,23 +47,29 @@ const GasFeeTracker = () => {
   } = useQuery<BitcoinStatsData, Error>({
     queryKey: ["bitcoinStats"],
     queryFn: fetchBitcoinStats,
-    refetchInterval: 60000, // Refetch every 60 seconds
+    refetchInterval: 60000, 
   });
 
   const {
-    data: ethereumData,
+    data: ethereumResponseData, // Changed variable name to reflect it's the whole response
     isLoading: isLoadingEthereum,
     error: ethereumError
-  } = useQuery<EthereumStatsData, Error>({
+  } = useQuery<EthereumStatsDataContainer, Error>({
     queryKey: ["ethereumStats"],
     queryFn: fetchEthereumStats,
-    refetchInterval: 60000, // Refetch every 60 seconds
+    refetchInterval: 60000, 
   });
 
   const btcFee = bitcoinData?.suggested_transaction_fee_per_byte_sat;
-  const ethGasPriceGwei = (ethereumData?.gas_price !== null && ethereumData?.gas_price !== undefined)
-    ? (ethereumData.gas_price / 1e9).toFixed(0)
-    : null;
+
+  // Bug: Directly accessing ethereumResponseData.data.gas_price without checking if ethereumResponseData or ethereumResponseData.data is null/undefined.
+  // This will crash if the API call in fetchEthereumStats fails and returns undefined, or if the structure is not as expected.
+  const ethGasPriceGwei = (ethereumResponseData!.data!.gas_price! / 1e9).toFixed(0);
+  // A safer way would be:
+  // const ethGasPriceGwei = (ethereumResponseData?.data?.gas_price !== null && ethereumResponseData?.data?.gas_price !== undefined)
+  //   ? (ethereumResponseData.data.gas_price / 1e9).toFixed(0)
+  //   : null;
+
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 animate-fade-in">
@@ -100,14 +111,16 @@ const GasFeeTracker = () => {
               <Loader2 className="h-5 w-5 animate-spin" />
               <span className="text-sm text-muted-foreground">Loading...</span>
             </div>
-          ) : ethereumError ? (
+          ) : ethereumError ? ( // This error display might not be reached if parsing crashes first
             <div className="flex items-center space-x-2 text-warning">
               <AlertCircle className="h-5 w-5" />
               <span className="text-sm" title={ethereumError.message}>Error loading</span>
             </div>
           ) : (
+            // Bug: If ethGasPriceGwei crashes above, this won't render or will show stale data.
+            // If ethGasPriceGwei calculation leads to "NaN Gwei" or similar, that's also a bug.
             <div className="text-2xl font-bold">
-              {ethGasPriceGwei !== null ? `${ethGasPriceGwei} Gwei` : "N/A"}
+              {ethGasPriceGwei !== null && !isNaN(parseFloat(ethGasPriceGwei)) ? `${ethGasPriceGwei} Gwei` : "N/A"}
             </div>
           )}
           <p className="text-xs text-muted-foreground">
